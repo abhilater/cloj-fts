@@ -7,7 +7,7 @@ A Proof of concept full text search service over simple REST endpoints built on 
 
 HTTP API. There are 2 endpoints
 
-1. POST /document
+1. POST /documents
 ```
 {
 "id": "123",
@@ -17,7 +17,7 @@ HTTP API. There are 2 endpoints
 
 Clients post a unique identified with each document. “text” field contains all the text to be indexed.
 
-2. GET /search?query="WALL"
+2. GET /documents/search?query="WALL"
 ```
 {
 "count":1,
@@ -40,7 +40,7 @@ would generate 8 tokens, namely: "We", "are", "going", "to", "build", "a", "HUUU
 A normaliser converts the input to a normalised form. Default normaliser would convert all strings
 to lowercase. For example for token "HUUUUUGEEE" will be normalised to "huuuuugeee".
 
-A good implementation would allows users to configure and chain multiple tokenisers and
+Allows users to configure and chain multiple tokenisers and
 normalisers according to their use case. Additionally, it would be great if users could provide their
 own implementations too.
 
