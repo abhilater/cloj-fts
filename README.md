@@ -100,6 +100,9 @@ FIXME: listing of options this app accepts.
 
 ### Bugs
 
+1. For update index workflow we need to un-index and re-index the existing
+ document
+
 ...
 
 ### Any Other Sections

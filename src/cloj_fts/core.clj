@@ -83,6 +83,10 @@
            (reduce #(merge-with + %1 %2) {} (map #(token->postings %) tokenlist)))
   )
 
+(defn id-empty?
+  [id]
+  (or (empty? id) (nil? (first id)) (= "" (first id))))
+
 (defn get-docs-from-sorted-id-list
   "Gets the document records from the sorted doc id sequence"
   [doc-id-list]
@@ -142,10 +146,9 @@
 
 (defn create-doc
   [text & id]
-  (if (empty? id)
+  (if (id-empty? id)
     (Document. (next-id in-mem-id-generator) text)
     (Document. (first id) text)))
-
 
 
 (defn test-server
