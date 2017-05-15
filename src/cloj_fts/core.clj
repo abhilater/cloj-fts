@@ -9,14 +9,14 @@
 (def doc-map (atom {}))
 
 ;;; Creates new tokenizer
-(defn create-tokenizer
+(defn- create-tokenizer
   "Returns a tokenizer based on specified split regex. eg space chars"
   [split-regex]
   (fn [text]
     (string/split text split-regex)))
 
 ;;; Creates new normalizer
-(defn create-normalizer
+(defn- create-normalizer
   "Returns a normalizer based on specified conversion eg toLowerCase"
   [conversion]
   (fn [token]
@@ -49,7 +49,7 @@
 ;; Normalizer chain
 (def normalizer-chain (list lowercase-normalizer))
 
-(defn get-tokens
+(defn- get-tokens
   [text]
   (let [text-list (list text)]
     ;; tokenizer chain process
@@ -59,23 +59,23 @@
         (recur (rest tchain) (reduce #(concat ((first tchain) %2) %1) [] input-list))
         ))))
 
-(defn apply-normalizations
+(defn- apply-normalizations
   [token-list]
   ;; apply sequence of normalization fns to the input seq
   (map #((apply comp normalizer-chain) %) token-list))
 
 
-(defn id->doc
+(defn- id->doc
   "Returns a doc id's doc"
   [doc-id]
   (get @doc-map doc-id))
 
-(defn token->postings
+(defn- token->postings
   "Returns postings for the given token"
   [token]
   (get @inverted-idx token))
 
-(defn gen-docid-freq-map-for-search
+(defn- gen-docid-freq-map-for-search
   "Takes a list of tokens, fetches the maps, merges them with addition of freq
   and then finally sorts by value i.e freq count"
   [tokenlist]
@@ -83,11 +83,11 @@
            (reduce #(merge-with + %1 %2) {} (map #(token->postings %) tokenlist)))
   )
 
-(defn id-empty?
+(defn- id-empty?
   [id]
   (or (empty? id) (nil? (first id)) (= "" (first id))))
 
-(defn get-docs-from-sorted-id-list
+(defn- get-docs-from-sorted-id-list
   "Gets the document records from the sorted doc id sequence"
   [doc-id-list]
   (map #(id->doc (first %)) doc-id-list))
@@ -124,14 +124,34 @@
   (doseq [token token-list]
     (update-inv-idx token doc-id)))
 
+(defn delete-inv-idx
+  "Deletes inverted index for the given token and doc-id"
+  [token doc-id]
+  (swap! inverted-idx #(update-in % [token] dissoc doc-id))
+  )
+
+(defn apply-tokenlist-for-index-delete
+  [token-list doc-id]
+  (doseq [token token-list]
+    (delete-inv-idx token doc-id)))
+
 (defn index-doc
   "Indexes a doc"
   [doc]
   (let [id (:id doc)]
-    ;; 1. generates tokens using the tokenizer chain
+    ;;0. If existing doc delete all its previous token associations
+    (if (contains? @doc-map id)
+      (apply-tokenlist-for-index-delete
+        (->
+          (id->doc id)
+          :text
+          get-tokens
+          apply-normalizations
+          )
+        id))
+    ;; 1. generate tokens using the tokenizer chain
     ;; 2. Apply normalizations using the norm chain
     ;; 3. update processed tokens to inv-index
-    ;; 4. update doc to doc-map
     (apply-tokenlist-for-index
       (->
         doc
@@ -140,7 +160,9 @@
         apply-normalizations
         )
       id)
+    ;; 4. update doc to doc-map
     (swap! doc-map assoc id doc)
+    ;; 5. return indexed document
     (id->doc id)
     ))
 

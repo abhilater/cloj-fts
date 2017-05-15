@@ -22,6 +22,11 @@
     (do (index-doc (create-doc "YES we ARe")))
     (is (= (count (search query))
            2))
+    (do (index-doc (create-doc "YES Are a" 2)))
+    (is (= (count (search query))
+           2))
+    (is (= (count (search "yes"))
+           1))
     ))
 
 
