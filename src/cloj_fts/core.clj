@@ -1,5 +1,7 @@
 (ns cloj-fts.core
-  (:require [clojure.string :as string])
+  (:require [clojure.string :as string]
+            [cloj-fts.id_generator :as id-gen]
+            [cloj-fts.processor :as processor])
   (:gen-class))
 
 ;;; Core models and data-structures
@@ -7,63 +9,6 @@
 (defrecord Posting [doc-id token-freq])
 (def inverted-idx (atom {}))
 (def doc-map (atom {}))
-
-;;; Creates new tokenizer
-(defn- create-tokenizer
-  "Returns a tokenizer based on specified split regex. eg space chars"
-  [split-regex]
-  (fn [text]
-    (string/split text split-regex)))
-
-;;; Creates new normalizer
-(defn- create-normalizer
-  "Returns a normalizer based on specified conversion eg toLowerCase"
-  [conversion]
-  (fn [token]
-    (conversion token)))
-
-(defprotocol IdGenerator
-  "Abstraction unique id generator, default impl in-memory"
-  (next-id [_] "Get next id"))
-
-;;; Generates unique auto increment ids in memory
-(deftype InMemoryIdGenerator [uid]
-  IdGenerator
-  (next-id [_] (swap! uid inc)))
-
-;;; Instance of InMemoryIdGenerator
-(def in-mem-id-generator (InMemoryIdGenerator. (atom 0)))
-
-(def space-split-regex #" +")
-(def to-lowercase-conversion #(.toLowerCase %))
-
-;; Space tokenizer
-(def space-tokenizer (create-tokenizer space-split-regex))
-;; hyphen tokenizer
-(def hyphen-tokenizer (create-tokenizer #"-"))
-;; Lowercase normalizer
-(def lowercase-normalizer (create-normalizer to-lowercase-conversion))
-
-;; Tokenizer chain
-(def tokenizer-chain (list space-tokenizer hyphen-tokenizer))
-;; Normalizer chain
-(def normalizer-chain (list lowercase-normalizer))
-
-(defn- get-tokens
-  [text]
-  (let [text-list (list text)]
-    ;; tokenizer chain process
-    (loop [tchain tokenizer-chain input-list text-list]
-      (if (empty? tchain)
-        input-list
-        (recur (rest tchain) (reduce #(concat ((first tchain) %2) %1) [] input-list))
-        ))))
-
-(defn- apply-normalizations
-  [token-list]
-  ;; apply sequence of normalization fns to the input seq
-  (map #((apply comp normalizer-chain) %) token-list))
-
 
 (defn- id->doc
   "Returns a doc id's doc"
@@ -80,8 +25,7 @@
   and then finally sorts by value i.e freq count"
   [tokenlist]
   (sort-by val >
-           (reduce #(merge-with + %1 %2) {} (map #(token->postings %) tokenlist)))
-  )
+           (reduce #(merge-with + %1 %2) {} (map #(token->postings %) tokenlist))))
 
 (defn- id-empty?
   [id]
@@ -101,8 +45,8 @@
   ;; 4. returns sorted documents
   (->
     query
-    get-tokens
-    apply-normalizations
+    processor/get-tokens
+    processor/apply-normalizations
     gen-docid-freq-map-for-search
     get-docs-from-sorted-id-list
     ))
@@ -116,8 +60,7 @@
         (swap! inverted-idx assoc token {doc-id 1})
       (not (contains? (get @inverted-idx token) doc-id))
         (swap! inverted-idx assoc token (assoc (get @inverted-idx token) doc-id 1))
-      :else (swap! inverted-idx #(update-in % [token doc-id] inc))
-      ))
+      :else (swap! inverted-idx #(update-in % [token doc-id] inc))))
 
 (defn apply-tokenlist-for-index
   [token-list doc-id]
@@ -127,8 +70,7 @@
 (defn delete-inv-idx
   "Deletes inverted index for the given token and doc-id"
   [token doc-id]
-  (swap! inverted-idx #(update-in % [token] dissoc doc-id))
-  )
+  (swap! inverted-idx #(update-in % [token] dissoc doc-id)))
 
 (defn apply-tokenlist-for-index-delete
   [token-list doc-id]
@@ -136,7 +78,8 @@
     (delete-inv-idx token doc-id)))
 
 (defn index-doc
-  "Indexes a doc"
+  "Indexes a doc. Takes a document object and creates a new index or updates the
+  existing index if the document exists"
   [doc]
   (let [id (:id doc)]
     ;;0. If existing doc delete all its previous token associations
@@ -145,8 +88,8 @@
         (->
           (id->doc id)
           :text
-          get-tokens
-          apply-normalizations
+          processor/get-tokens
+          processor/apply-normalizations
           )
         id))
     ;; 1. generate tokens using the tokenizer chain
@@ -156,20 +99,19 @@
       (->
         doc
         :text
-        get-tokens
-        apply-normalizations
+        processor/get-tokens
+        processor/apply-normalizations
         )
       id)
     ;; 4. update doc to doc-map
     (swap! doc-map assoc id doc)
     ;; 5. return indexed document
-    (id->doc id)
-    ))
+    (id->doc id)))
 
 (defn create-doc
   [text & id]
   (if (id-empty? id)
-    (Document. (next-id in-mem-id-generator) text)
+    (Document. (id-gen/next-id id-gen/in-mem-id-generator) text)
     (Document. (first id) text)))
 
 

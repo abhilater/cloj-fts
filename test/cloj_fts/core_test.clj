@@ -1,6 +1,7 @@
 (ns cloj-fts.core-test
   (:require [clojure.test :refer :all]
-            [cloj-fts.core :refer :all]))
+            [cloj-fts.core :refer :all]
+            [cloj-fts.id_generator :refer :all]))
 
 
 
