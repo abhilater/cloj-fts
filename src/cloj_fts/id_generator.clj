@@ -30,4 +30,9 @@
 (def in-mem-id-generator (InMemoryIdGenerator. (atom 0)))
 (def db-id-generator (DbIdGenerator. (atom 0)))
 
+(defn id-generator-factory [type init-val]
+  (case type
+    :in-mem (InMemoryIdGenerator. (atom init-val))
+    :db (DbIdGenerator. (atom init-val))))
+
 
