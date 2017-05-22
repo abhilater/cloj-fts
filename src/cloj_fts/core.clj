@@ -53,16 +53,15 @@
           :text
           processor/tokenize-text)
         id))
-    ;; 1. generate tokens using the tokenizer chain
-    ;; 2. Apply normalizations using the norm chain
-    ;; 3. update processed tokens to inv-index
+    ;; 1. tokenize text
+    ;; 2. update processed tokens to inv-index
     (idxr/index-token-seq index
       (->
         doc
         :text
         processor/tokenize-text)
       id)
-    ;; 4. update doc to doc-map
+    ;; 3. add processed doc to doc-map
     (swap! (:doc-map index) assoc id doc)
     (idxr/id->doc index id)))
 
