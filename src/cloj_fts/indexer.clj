@@ -14,18 +14,22 @@
   (@(:reverse-index index) token))
 
 
-(defn- update-inv-idx
+(defn ^:private update-idx-internal [token doc-id]
+  (fn [rev-index]
+    (cond
+      (not (contains? rev-index token))
+        (assoc rev-index token {doc-id 1})
+      (not (contains? (rev-index token) doc-id))
+        (update-in rev-index [token doc-id] (fn [val] 1))
+      :else (update-in rev-index [token doc-id] inc))))
+
+(defn ^:private update-inv-idx
   "Updates the inverted index correctly for the given token and doc-id"
   [index token doc-id]
-  (cond
-    (not (contains? @(:reverse-index index) token))
-      (swap! (:reverse-index index) assoc token {doc-id 1})
-    (not (contains? (@(:reverse-index index) token) doc-id))
-      (swap! (:reverse-index index) update-in [token doc-id] (fn [val] 1))
-    :else (swap! (:reverse-index index) update-in [token doc-id] inc)))
+  (swap! (:reverse-index index) (update-idx-internal token doc-id)))
 
 
-(defn- delete-index
+(defn ^:private delete-index
   "Deletes inverted index for the given token and doc-id"
   [index token doc-id]
   (swap! (:reverse-index index) #(update-in % [token] dissoc doc-id)))
@@ -40,11 +44,10 @@
     (apply merge-with +
            (map (partial token->postings index) token-seq))))
 
-
 (defn docs-from-doc-id-map
   "Gets the document records from the sorted doc id sequence"
   [index doc-seq]
-  (map #(id->doc index (first %)) doc-seq))
+  (map (comp (partial id->doc index) key) doc-seq))
 
 
 (defn index-token-seq

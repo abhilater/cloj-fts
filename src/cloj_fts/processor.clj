@@ -1,15 +1,15 @@
 (ns cloj-fts.processor
   (:require [clojure.string :as string]))
 
-(defn- create-tokenizer [split-regex]
+(defn ^:private create-tokenizer [split-regex]
   (fn [text]
     (string/split text split-regex)))
 
-(defn- create-normalizer [convertor-function]
+(defn ^:private create-normalizer [convertor-function]
   (fn [token] (convertor-function token)))
 
-(def tokenizer-chain (map create-tokenizer [#" +" #"-"]))
-(def normalizer-chain (map create-normalizer [#(.toLowerCase %)]))
+(def ^:private tokenizer-chain (map create-tokenizer [#" +" #"-"]))
+(def ^:private normalizer-chain (map create-normalizer [#(.toLowerCase %)]))
 
 (defn tokenize-text
   "Applies the tokenizer chain and normalizer chain on the text to generate tokens to index"
